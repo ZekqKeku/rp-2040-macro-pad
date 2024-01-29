@@ -1,0 +1,20 @@
+{
+    "profile.0": {
+        "color": "#21C4DB",
+        "key.0": ["profile<1>", "#40DB21"],
+        "key.1": ["media<play>", "#40DB21"],
+        "key.2": ["key<ctrl>&&key<s>", "#40DB21"],
+        "key.3": ["key<alt>&&key<shift>&&key<ctrl>&&key<w>", "#40DB21"],
+        "key.4": ["key<ctrl>&&key<a>&&key<ctrl>&&key<c>&&key<down_arrow>", "#40DB21"],
+        "key.5": ["press<tab>&&wait<3>&&key<c>&&realese<tab>", "#40DB21"]
+    },
+    "profile.1": {
+        "color": "#40DB21",
+        "key.0": ["profile<0>", "#40DB21"],
+        "key.1": ["key<F13>", "#40DB21"],
+        "key.2": ["key<F14>", "#40DB21"],
+        "key.3": ["key<F15>", "#40DB21"],
+        "key.4": ["key<F16>", "#40DB21"],
+        "key.5": ["key<F17>", "#40DB21"]
+    }
+}
