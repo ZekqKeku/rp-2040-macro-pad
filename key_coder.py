@@ -1,14 +1,11 @@
-try:
-    import time
-    import board
-    import digitalio
-    import usb_hid
-    from adafruit_hid.keyboard import Keyboard
-    from adafruit_hid.keycode import Keycode
-    from adafruit_hid.consumer_control import ConsumerControl
-    from adafruit_hid.consumer_control_code import ConsumerControlCode
-except:
-    print("Błąd importu bibliotek")
+import time
+import board
+import digitalio
+import usb_hid
+from adafruit_hid.keyboard import Keyboard
+from adafruit_hid.keycode import Keycode
+from adafruit_hid.consumer_control import ConsumerControl
+from adafruit_hid.consumer_control_code import ConsumerControlCode
 
 class KeyCoder:
     def __init__(self):
@@ -121,7 +118,7 @@ class KeyCoder:
             'BRIGHTNESSDOWN': ConsumerControlCode.BRIGHTNESS_DECREMENT
         }
 
-    def press_and_realese_key(self, key, shift=False, alt=False, ctrl=False, rightS=False, rightA=False, rightC=False):
+    def press_and_release_key(self, key, shift=False, alt=False, ctrl=False, rightS=False, rightA=False, rightC=False):
         if key in self.special_keys:
             for key_i, value_i in self.special_keys.items():
                 if key == key_i: key = value_i       
@@ -153,94 +150,102 @@ class KeyCoder:
         else:
             self.kbd.press(getattr(Keycode, key.upper()))
             
-    def realese_key(self, key):
+    def release_key(self, key):
         if "ctrl" in key: key = key.replace("ctrl", "control")
         if isinstance(key, str) and key.startswith('0x'):
             self.kbd.release(int(key, 16))
         else:
             self.kbd.release(getattr(Keycode, key.upper()))
      
-    def send_and_decode(self, text):
-        ctrl, shift, alt, rightC, rightS, rightA = False, False, False, False, False, False
+    def get_macro_steps(self, text):
+        return text.split("+")
+
+    def execute_step(self, section, state):
+        wait_seconds = 0
         calr = ["shift", "alt", "ctrl",
                 "left_shift", "left_alt", "left_ctrl",
                 "right_shift", "right_alt", "right_ctrl"]
+
+        if section.startswith('key<') and section.endswith('>'):
+            key = section[4:-1]
+            if key.lower() in calr:
+                if "shift" in key.lower():
+                    state['shift'] = True
+                    if key.startswith("right"): state['rightS'] = True
+                if "ctrl" in key.lower():
+                    state['ctrl'] = True
+                    if key.startswith("right"): state['rightC'] = True
+                if "alt" in key.lower():
+                    state['alt'] = True
+                    if key.startswith("right"): state['rightA'] = True
+            else:
+                self.press_and_release_key(key, 
+                    shift=state['shift'], alt=state['alt'], ctrl=state['ctrl'], 
+                    rightS=state['rightS'], rightC=state['rightC'], rightA=state['rightA'])
+                state.update({'ctrl': False, 'shift': False, 'alt': False, 
+                             'rightC': False, 'rightS': False, 'rightA': False})
         
-        sections = text.split("&&")
+        elif section.startswith('press<') and section.endswith('>'):
+            key = section[6:-1]
+            self.press_key(key)
+            
+        elif section.startswith('release<') and section.endswith('>'):
+            key = section[8:-1]
+            self.release_key(key)
+            
+        elif section.startswith('text<') and section.endswith('>'):
+            text = section[5:-1]
+            for char in text:
+                temp_shift, temp_alt, temp_rightA = state['shift'], state['alt'], state['rightA']
+                if char in "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ":
+                    char = char.replace("ą", "a").replace("ć", "c").replace("ę", "e").replace("ł", "l").replace("ń", "n").replace("ó", "o").replace("ś", "s").replace("ź", "z").replace("ż", "z").replace("Ą", "A").replace("Ć", "C").replace("Ę", "E").replace("Ł", "L").replace("Ń", "N").replace("Ó", "O").replace("Ś", "S").replace("Ź", "Z").replace("Ż", "Z")
+                    temp_alt = True
+                    temp_rightA = True
+                if char.isupper():
+                    temp_shift = True
+                self.press_and_release_key(char, 
+                    shift=temp_shift, alt=temp_alt, ctrl=state['ctrl'], 
+                    rightS=state['rightS'], rightC=state['rightC'], rightA=temp_rightA)
         
+        elif section.startswith('wait<') and section.endswith('>'):
+            wait_val = section[5:-1]
+            wait_seconds = float(wait_val.replace(",",".")) / 10
+            
+        elif section.startswith('media<') and section.endswith('>'):
+            media_cmd = section[6:-1].upper()
+            if media_cmd.startswith('VOLUP:'):
+                vol = min(max(int(media_cmd[6:]), 1), 100)
+                for _ in range(vol): self.cc.send(self.media_keys['VOLUP'])
+            elif media_cmd.startswith('VOLDOWN:'):
+                vol = min(max(int(media_cmd[8:]), 1), 100)
+                for _ in range(vol): self.cc.send(self.media_keys['VOLDOWN'])
+            elif media_cmd.startswith('BRIGHTNESSUP:'):
+                br = min(max(int(media_cmd[13:]), 1), 100)
+                for _ in range(br): self.cc.send(self.media_keys['BRIGHTNESSUP'])
+            elif media_cmd.startswith('BRIGHTNESSDOWN:'):
+                br = min(max(int(media_cmd[15:]), 1), 100)
+                for _ in range(br): self.cc.send(self.media_keys['BRIGHTNESSDOWN'])
+            else:
+                self.cc.send(self.media_keys[media_cmd])
+        
+        return wait_seconds
+
+    def finalize_macro(self, state):
+        if state['shift']: self.release_key("left_shift")
+        if state['shift'] and state['rightS']: self.release_key("right_shift")
+        if state['ctrl']: self.release_key("left_ctrl")
+        if state['ctrl'] and state['rightC']: self.release_key("right_ctrl")
+        if state['alt']: self.release_key("left_alt")
+        if state['alt'] and state['rightA']: self.release_key("right_alt")
+
+    def send_and_decode(self, text):
+        state = {'ctrl': False, 'shift': False, 'alt': False, 
+                 'rightC': False, 'rightS': False, 'rightA': False}
+        sections = self.get_macro_steps(text)
         for section in sections:
-            if section.startswith('key<') and section.endswith('>'):
-                key = section[4:-1]
-                if key.lower() in calr:
-                    if "shift" in key.lower():
-                        shift = True
-                        if key.startswith("right"): rightS = True
-                    if "ctrl" in key.lower():
-                        ctrl = True
-                        if key.startswith("right"): rightC = True
-                    if "alt" in key.lower():
-                        alt = True
-                        if key.startswith("right"): rightA = True
-                else:
-                    self.press_and_realese_key(key,shift=shift,alt=alt,ctrl=ctrl,rightS=rightS,rightC=rightC,rightA=rightA)
-                    ctrl, shift, alt, rightC, rightS, rightA = False, False, False, False, False, False
-            
-            elif section.startswith('press<') and section.endswith('>'):
-                key = section[6:-1]
-                self.press_key(key)
-                
-            elif section.startswith('realese<') and section.endswith('>'):
-                key = section[8:-1]
-                self.realese_key(key)
-                
-            elif section.startswith('text<') and section.endswith('>'):
-                text = section[5:-1]
-                for char in text:
-                    if char in "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ":
-                        char = char.replace("ą", "a").replace("ć", "c").replace("ę", "e").replace("ł", "l").replace("ń", "n").replace("ó", "o").replace("ś", "s").replace("ź", "z").replace("ż", "z").replace("Ą", "A").replace("Ć", "C").replace("Ę", "E").replace("Ł", "L").replace("Ń", "N").replace("Ó", "O").replace("Ś", "S").replace("Ź", "Z").replace("Ż", "Z")
-                        alt = True
-                        rightA = True
-                    if char.isupper():
-                        shift = True
-                    self.press_and_realese_key(char,shift=shift,alt=alt,ctrl=ctrl,rightS=rightS,rightC=rightC,rightA=rightA)
-                    shift, rightA, alt = False, False, False
-            
-            elif section.startswith('wait<') and section.endswith('>'):
-                wait_time = section[5:-1]
-                wait_time = float(wait_time.replace(",",".")) / 10              
-                time.sleep(wait_time)
-                
-            elif section.startswith('media<') and section.endswith('>'):
-                self.media_command = section[6:-1].upper()
-                if self.media_command.startswith('VOLUP:'):
-                    vol_change = int(self.media_command[6:])
-                    vol_change = min(max(vol_change, 1), 100)
-                    for _ in range(vol_change):
-                        self.cc.send(self.media_keys['VOLUP'])
-                elif self.media_command.startswith('VOLDOWN:'):
-                    vol_change = int(self.media_command[8:])
-                    vol_change = min(max(vol_change, 1), 100)
-                    for _ in range(vol_change):
-                        self.cc.send(self.media_keys['VOLDOWN'])
-                elif self.media_command.startswith('BRIGHTNESSUP:'):
-                    brightness_change = int(self.media_command[13:])
-                    brightness_change = min(max(brightness_change, 1), 100)
-                    for _ in range(brightness_change):
-                        self.cc.send(self.media_keys['BRIGHTNESSUP'])
-                elif self.media_command.startswith('BRIGHTNESSDOWN:'):
-                    brightness_change = int(self.media_command[15:])
-                    brightness_change = min(max(brightness_change, 1), 100)
-                    for _ in range(brightness_change):
-                        self.cc.send(self.media_keys['BRIGHTNESSDOWN'])
-                else:
-                    self.cc.send(self.media_keys[self.media_command])
-        
-        if shift: self.realese_key("left_shift")
-        if shift and rightS: self.realese_key("right_shift")
-        if ctrl: self.realese_key("left_ctrl")
-        if ctrl and rightC: self.realese_key("right_ctrl")
-        if alt: self.realese_key("left_alt")
-        if alt and rightA: self.realese_key("right_alt")
+            wait = self.execute_step(section, state)
+            if wait > 0: time.sleep(wait)
+        self.finalize_macro(state)
         
     
 def main():
@@ -251,10 +256,11 @@ def main():
     led = digitalio.DigitalInOut(board.LED)
     led.direction = digitalio.Direction.OUTPUT
     
+    kc = KeyCoder()
     while True:
         if not button1.value:
             led.value = True
-            KeyCoder().send_and_decode("wait<1,5>&&key<a>")        
+            kc.send_and_decode("wait<1.5>+key<a>")        
             time.sleep(0.25)
         else:
             led.value = False

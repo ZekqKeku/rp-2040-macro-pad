@@ -8,26 +8,18 @@ except ImportError as e:
 class JsonTools():
     def __init__(self, class_path:str=""):
         self.class_path = class_path
-
-#      def relativeFilePath(self, target:str=None):
-#         current_path = os.path.dirname(os.path.abspath(__file__))
-#         if target is not None: new_path = os.path.join(current_path, target)
-#         if target is None: return current_path
-#         else: return new_path
     
     def relativeFilePath(self, target:str=None):
-        current_path = os.getcwd()
         if target is not None: 
-            new_path = f"{current_path}/{target}"
-            return new_path
+            return f"{self.class_path}/{target}" if self.class_path else target
         else: 
-            return current_path
+            return self.class_path if self.class_path else "."
 
     def jsonVeryficator(self, file:str):
         try:
-            with open((f"{self.relativeFilePath()}/{self.class_path}/{file}"), "r") as f: json.load(f)
+            with open(self.relativeFilePath(file), "r") as f: json.load(f)
             return True
-        except:
+        except (OSError, ValueError):
             return False
 
     def bindVeryficator(self, file:str):
@@ -41,7 +33,7 @@ class JsonTools():
                 return False
 
         prof = False
-        with open((f"{self.relativeFilePath()}/{self.class_path}/{file}"), "r") as f: 
+        with open(self.relativeFilePath(file), "r") as f: 
             data = json.load(f)
             for key, value in data.items():
                 if isinstance(value, dict) and ("color" not in value or ("color" in value and not is_hex_color(value["color"]))):
@@ -51,7 +43,7 @@ class JsonTools():
                         continue
                     if subkey.startswith("key.") and isinstance(subvalue, list) and len(subvalue) == 2:
                         command, color = subvalue
-                        commands = ["profile", "key", "press", "realese", "text", "media"]
+                        commands = ["profile", "key", "press", "release", "text", "media"]
                         if not any(cmd in command for cmd in commands) or not command.endswith(">") or is_hex_color(color) == False:
                             return False
                     else:

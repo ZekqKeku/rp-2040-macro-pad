@@ -6,9 +6,10 @@
 
 * `key<>` - Presses a key for a short moment. If preceded by Ctrl, Alt, or Shift, they will remain pressed until the next key. A standalone `key<ctrl>` will be ignored.
 * `press<>` - Presses and holds the selected key until it is released.
-* `realese<>` - Releases the currently held key. This is highly recommended for every key that was pressed using the `press<>` method.
+* `release<>` - Releases the currently held key. This is highly recommended for every key that was pressed using the `press<>` method.
 * `text<>` - Automatically types text based on the `key<>` method. It features automatic Shift usage for uppercase letters and recognition of Polish diacritics.
 * `media<>` - Allows control over media playback, system volume, screen brightness, and more.
+* `wait<>` - Introduces a delay in the macro execution.
 
 *Note: If Ctrl, Shift, or Alt is not explicitly specified, the left one is used by default.*
 
@@ -21,15 +22,24 @@ To chain multiple methods in a single bind, use the `+` connector without any ad
 * `media<volup>` - Increases system volume
 * `media<volup:10>` - Increases system volume (by 10 steps)
 * `media<play>` - Resumes paused music or video
-* `press<right_ctrl>+key<A>+realese<right_ctrl>` - Ctrl+A
+* `press<right_ctrl>+key<A>+release<right_ctrl>` - Ctrl+A
+* `key<alt>+wait<5>+key<f4>` - Press Alt, wait 0.5s, then press F4
 
 ## Detailed Method Descriptions
 
-### `key<>`, `press<>` and `realese<>`
+### `key<>`, `press<>` and `release<>`
 These methods accept the vast majority of standard keyboard keys that can be typed without requiring Shift, etc.
 * Supports keys from `F1` to `F24`.
 * Numbers are accepted literally (`1` instead of `one`).
 * Numpad keys are simplified (`num1` instead of `numpad_one`).
+
+### `wait<>`
+The value inside the brackets is interpreted in deciseconds (1/10 of a second).
+* `wait<10>` - 1 second delay
+* `wait<5>` - 0.5 second delay
+* `wait<1>` - 0.1 second delay
+
+Thanks to the non-blocking implementation, a `wait` command in one macro does not stop the execution of other macros or the detection of new key presses.
 
 ### `media<>`
 In practice, `Play` and `Pause` provide the exact same toggle effect. If media is currently playing, sending `Play` will act as a pause command.
@@ -47,4 +57,3 @@ The `VolUp`, `VolDown`, `BrightnessUp`, and `BrightnessDown` methods can optiona
 ## Planned Features (To-Do)
 
 * `mouse<>` - Mouse movement and click control
-* `wait<>` - Execution delay in seconds

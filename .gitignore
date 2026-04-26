@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+
+# System files
+.DS_Store
+Thumbs.db
+
+# CircuitPython / Hardware specific
+boot_out.txt
+data.txt
+*.metadata
+.fseventsd/
+.Trashes/
+.Spotlight-V100/
+
+# Local configuration
+binds_config.json.local

@@ -1,0 +1,12 @@
+# Set default behavior to automatically guess encoding
+* text=auto
+
+# Explicitly set text files to use LF (recommended for cross-platform compatibility)
+*.py text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.ico binary
